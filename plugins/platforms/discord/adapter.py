@@ -3177,13 +3177,22 @@ class DiscordAdapter(DiscordLiveGatesMixin, DiscordAuthorizationMixin, DiscordMe
             chunks = self.truncate_message(formatted, self.MAX_MESSAGE_LENGTH)
             message_ids = []
             reference = self._reply_reference_for_send(reply_to, channel)
+            # @silent delivery: every message NOT flagged as a user-visible
+            # final reply (tool-progress bubbles, busy acks, "⏳ Working"
+            # heartbeats, status/fallback notices, background-process output)
+            # is sent with Discord's suppress-notifications flag (4096) so it
+            # renders in the channel without pushing a notification. Messages
+            # with metadata["notify"]=True — the agent's final response and
+            # voice replies — keep normal push delivery. Message EDITS never
+            # push regardless, so streaming previews are unaffected either way.
+            silent = not final_delivery
             for i, chunk in enumerate(chunks):
                 if self._reply_to_mode == "all":
                     chunk_reference = reference
                 else:  # "first" (default) or "off"
                     chunk_reference = reference if i == 0 else None
                 try:
-                    msg = await channel.send(content=chunk, reference=chunk_reference)
+                    msg = await channel.send(content=chunk, reference=chunk_reference, silent=silent)
                 except Exception as e:
                     if chunk_reference is not None and self._is_reply_reference_rejected(e):
                         logger.warning(
@@ -3191,7 +3200,7 @@ class DiscordAdapter(DiscordLiveGatesMixin, DiscordAuthorizationMixin, DiscordMe
                             self.name, reply_to,
                         )
                         reference = None
-                        msg = await channel.send(content=chunk, reference=None)
+                        msg = await channel.send(content=chunk, reference=None, silent=silent)
                     else:
                         raise
                 message_ids.append(str(msg.id))

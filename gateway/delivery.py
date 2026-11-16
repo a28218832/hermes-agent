@@ -358,6 +358,12 @@ class DeliveryRouter:
                 else:
                     send_metadata["telegram_dm_topic_reply_fallback"] = True
 
+        # Cron/scheduled deliveries are user-facing results (reports, alerts,
+        # job output), not transient progress. Mark them notify-worthy so
+        # platform adapters that gate push notifications on this flag (e.g.
+        # Discord @silent delivery) deliver them with a real notification.
+        send_metadata.setdefault("notify", True)
+
         for retry in (False, True):
             result = await transport.send(target.platform, target.chat_id, content, metadata=send_metadata or None)
             error = _send_result_error(result)
