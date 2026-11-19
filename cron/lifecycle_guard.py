@@ -111,6 +111,38 @@ HOST_INTERPRETER_KILL_REJECTION = (
     "for a background job Hermes started, or kill/taskkill by its explicit PID."
 )
 
+# Branch F (E2 hard rule, 2026-11-19): an inline `pkill -f …` self-matches the wrapper
+# that runs it. The terminal backend inlines the command after the env snapshot
+# (`bash -c "source /tmp/hermes-snap-….sh; <command>"`), so the pattern text sits inside
+# the wrapper's own cmdline and pkill -f kills the wrapper running it (observed 3x in
+# the 071/076/078 sessions). A pkill -f inside a script FILE is safe (file contents are
+# not part of any cmdline) — that is the recommended rewrite, along with pidfiles.
+SELF_REFERENTIAL_PKILL_REJECTION = (
+    "Blocked: pkill -f's pattern matches the wrapper running this very command "
+    "(the terminal backend inlines the command line into the wrapper's cmdline, so the "
+    "pattern is always inside it; this exact self-kill was observed 3x). Write the "
+    "pkill into a script file and run that file, use pkill -F <pidfile>, or kill by "
+    "explicit PID / process(action=\"kill\", session_id=\"proc_…\")."
+)
+
+
+def contains_self_referential_pkill(text: str) -> bool:
+    """Branch F entrypoint: any inline ``pkill (-f|--full|-…f…) PATTERN``. Because the
+    command text is inlined into the wrapper's cmdline, the pattern text always matches
+    the wrapper itself. ``pgrep`` only lists (not lethal) and ``pkill`` by name without
+    ``-f`` is Branch E's concern, so both stay allowed here."""
+    normalized = _SHELL_LINE_CONTINUATION.sub(" ", text)
+    for segment in _iter_command_segments(normalized):
+        for position, token in enumerate(segment):
+            if _executable_name(token).lower().removesuffix(".exe") != "pkill":
+                continue
+            args = segment[position + 1:]
+            if any(t in ("-f", "--full") for t in args):
+                return True
+            if any(t.startswith("-") and not t.startswith("--") and "f" in t.lstrip("-") for t in args):
+                return True
+    return False
+
 
 def _is_interpreter_image(value: str, *, substring: bool = False) -> bool:
     """True when *value* (a process/image name, `*`-wildcard allowed) denotes the Python interpreter

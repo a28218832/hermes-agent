@@ -591,11 +591,18 @@ def gateway_lifecycle_block(
     from cron.lifecycle_guard import (
         _MAX_REFERENCED_SCRIPT_BYTES,
         HOST_INTERPRETER_KILL_REJECTION,
+        SELF_REFERENTIAL_PKILL_REJECTION,
         contains_host_interpreter_kill,
         contains_launchctl_submit_command,
+        contains_self_referential_pkill,
         lifecycle_scan_root_within_budget,
         scan_gateway_lifecycle,
     )
+    # Branch F (E2, 2026-11-19): an inline `pkill -f …` always self-matches the
+    # wrapper that runs it (the backend inlines the command after the env snapshot).
+    # Observed self-kill 3x (071/076/078 sessions) — block before anything else.
+    if contains_self_referential_pkill(command):
+        return _blocked_json(SELF_REFERENTIAL_PKILL_REJECTION, "error")
     # Keep the specific launchctl diagnostic when this optional pre-scan fits the
     # budget. The full fail-closed guard below still runs when it does not, so
     # oversized roots never reach shlex here.
@@ -646,7 +653,9 @@ def gateway_lifecycle_block(
             "uninstall the gateway from inside the gateway process. The gateway would "
             "kill this command before it could complete (SIGTERM propagates "
             "to child processes). Run `hermes gateway restart` from a "
-            "separate shell outside the running gateway.",
+            "separate shell outside the running gateway. For an in-band restart "
+            "use `hermes update --gateway` (drain-aware) or send SIGUSR1 to the "
+            "gateway PID from outside.",
             "error",
         )
     return None

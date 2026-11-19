@@ -9,6 +9,11 @@
 - fork remote：`git@github.com:a28218832/hermes-agent.git`
 - 首次 commit 內容：`gateway/delivery.py`、`gateway/run_notifications.py`、
   `plugins/platforms/discord/adapter.py`（Discord 通知靜音／@silent 相關，080 session 產物）
+- 2026-11-19 commit 2：E2 Branch F（inline `pkill -f` 自指攔截：`cron/lifecycle_guard.py`＋
+  `tools/terminal_tool_guards.py`）、E8 擋版訊息內建正確路徑（`tools/code_execution_lifecycle.py`＋
+  `tools/terminal_tool_guards.py`：`hermes update --gateway`／SIGUSR1）、測試
+  `tests/cron/test_lifecycle_guard_self_pkill.py`。原始碼層驗證 71 tests passed；
+  **重啟 gateway 後生效**。
 - autostash 紀錄：`stash@{0} = hermes-update-autostash-20261116-113120`（423 行 core patch）。
   078 已決定移植為 plugin；移植完成前**保留在 stash，不要 pop 到 live tree**。
 - credit dashboard 修改（~217 行＋discord_tool.py 8 行）已被 11-16 update 吞掉：
