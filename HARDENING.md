@@ -26,3 +26,6 @@
 3. `git push fork local/hardening`。
 4. 任何 core 修改（如 E8 guard 訊息、E2 Hermes 端 pkill 攔截）一律在本分支 commit＋push，
    不留在工作區。
+- 2026-11-20 check：上游 stable **v0.23.3** 已可用（本分支基於 v0.23.1+8063）。更新前先
+  `git fetch origin && git rebase origin/main`、重跑 `tests/cron/test_lifecycle_guard_self_pkill.py`
+  與 lifecycle 回歸，再 `hermes update --gateway`（guard 允許 in-band，drain-aware）。
